@@ -16,4 +16,8 @@ Betfair, Betano), em todos os mercados, num repositório de dados privado.
   (dia com mais de 3.000 livres; até 1.500 por dia), o histórico de 1º/2º tempo de `tempos_pendentes.json`.
   Memória em `futebol/_estado.json` no repositório de dados.
 
+- `ao_vivo.py` + `.github/workflows/ao_vivo.yml` — gravador ao vivo: 1 foto por minuto de cada jogo rolando
+  (estatística dos times, eventos, odds ao vivo dos mercados principais), só o que muda, em pacotes de 15 min
+  (`aovivo/estat|eventos|odds/...`). Loop de ~5h40 por execução, emendadas pela fila de concorrência.
+
 Secrets: `APIFOOTBALL_API_KEY`, `DADOS_TOKEN`. Variável: `DADOS_REPO`.

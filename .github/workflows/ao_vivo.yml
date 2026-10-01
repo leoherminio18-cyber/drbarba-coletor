@@ -1,0 +1,38 @@
+name: gravador ao vivo
+
+# Cada execução fica em loop ~5h40 (o GitHub encerra trabalhos com 6 h). O disparo de hora em hora
+# só serve para emendar: com o grupo de concorrência, o próximo fica na fila e começa quando o
+# anterior termina. Nunca roda dois ao mesmo tempo.
+on:
+  schedule:
+    - cron: '3 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: aovivo
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  aovivo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: gravar jogos ao vivo
+        env:
+          APIFOOTBALL_API_KEY: ${{ secrets.APIFOOTBALL_API_KEY }}
+          DADOS_TOKEN: ${{ secrets.DADOS_TOKEN }}
+          DADOS_REPO: ${{ vars.DADOS_REPO }}
+          DURACAO_MIN: '340'
+        run: python ao_vivo.py
