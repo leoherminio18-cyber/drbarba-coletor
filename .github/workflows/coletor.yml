@@ -10,6 +10,10 @@ on:
         description: 'Forçar a varredura completa agora'
         type: boolean
         default: false
+      teste:
+        description: 'Só testar os secrets (não coleta, não gasta cota)'
+        type: boolean
+        default: false
 
 concurrency:
   group: coletor
@@ -46,6 +50,7 @@ jobs:
           DADOS_TOKEN: ${{ secrets.DADOS_TOKEN }}
           DADOS_REPO: ${{ vars.DADOS_REPO }}
           FORCAR_VARREDURA: ${{ inputs.forcar_varredura && '1' || '' }}
+          TESTE: ${{ inputs.teste && '1' || '' }}
         run: python coletor.py
 
       - name: guardar a memória

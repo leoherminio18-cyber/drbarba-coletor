@@ -152,7 +152,23 @@ def enviar(caminho, conteudo, mensagem):
         raise RuntimeError(f'GitHub {r.status_code}: {r.text[:200]}')
 
 
+def teste():
+    """Confere os dois secrets sem gastar cota: chave da API (/status) e escrita no repositório de dados."""
+    st = requests.get(BASE + '/status', headers=H, timeout=30).json()
+    if st.get('errors'):
+        raise SystemExit(f'chave da API recusada: {st["errors"]}')
+    r = st['response']
+    log(f"API-Football ok: plano {r['subscription']['plan']}, ativo={r['subscription']['active']}, "
+        f"usadas hoje {r['requests']['current']} de {r['requests']['limit_day']}")
+    agora = datetime.now(timezone.utc)
+    enviar(f'teste/{agora:%Y%m%d_%H%M%S}.txt', f'teste de escrita {agora:%Y-%m-%d %H:%M:%S} UTC\n'.encode(),
+           'teste de escrita do coletor')
+    log(f"escrita no repositório de dados ok ({os.environ.get('DADOS_REPO')})")
+
+
 def main():
+    if os.environ.get('TESTE'):
+        return teste()
     est = carregar_estado()
     ligas = json.load(open('ligas.json', encoding='utf-8'))['ligas']
     t0, linhas, status, erro, varreu = time.time(), [], 'ok', '', False
