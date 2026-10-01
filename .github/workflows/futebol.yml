@@ -1,0 +1,35 @@
+name: robo de futebol
+
+on:
+  schedule:
+    # de hora em hora, fora dos minutos do coletor de odds (7, 22, 37, 52)
+    - cron: '44 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: futebol
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  futebol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: resultados + historico de 1o/2o tempo
+        env:
+          APIFOOTBALL_API_KEY: ${{ secrets.APIFOOTBALL_API_KEY }}
+          DADOS_TOKEN: ${{ secrets.DADOS_TOKEN }}
+          DADOS_REPO: ${{ vars.DADOS_REPO }}
+        run: python futebol.py
