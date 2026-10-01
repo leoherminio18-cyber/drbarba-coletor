@@ -55,9 +55,13 @@ def sobra():
     return INFO['limite'] - INFO['usadas']
 
 
+class SemCota(Exception):
+    pass
+
+
 def get(rota, **params):
     if sobra() <= 50:
-        raise RuntimeError('cota do dia no fim')
+        raise SemCota()
     for tentativa in range(3):
         try:
             r = requests.get(BASE + rota, params=params, headers=H, timeout=60)
@@ -191,6 +195,8 @@ def main():
         resumo['historico_tempos'] = len(hist)
         if tempos:
             enviar(f'futebol/tempos/{pasta}.json.gz', gz(tempos), f'tempos {agora:%Y-%m-%d %H:%M} ({len(tempos)})')
+    except SemCota:
+        resumo['status'] = 'sem_cota'
     except Exception as e:  # noqa: BLE001
         resumo['status'], resumo['erro'] = 'erro', repr(e)[:300]
     t = est.get('tempos', {})
@@ -199,6 +205,8 @@ def main():
                    'historico_feito': f"{t.get('ponteiro', 0)} de {len(pendentes)}",
                    'duracao_s': round(time.time() - t0)})
     log(json.dumps(resumo, ensure_ascii=False))
+    if resumo['status'] == 'sem_cota':   # dia sem cota: não grava nada, tenta na próxima hora
+        return
     if resumo['status'] == 'erro':
         # memória NÃO é gravada: a próxima execução refaz o que ficou no meio (nada se perde)
         sys.exit(1)
