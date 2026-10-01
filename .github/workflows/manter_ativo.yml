@@ -1,0 +1,24 @@
+name: manter ativo
+
+# O GitHub desliga agendamentos de repositório sem commit há 60 dias.
+# Um commit por semana com a data mantém o coletor ligado.
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pulso:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          date -u '+%Y-%m-%d %H:%M UTC' > pulso.txt
+          git config user.name 'drbarba-coletor'
+          git config user.email 'actions@users.noreply.github.com'
+          git add pulso.txt
+          git commit -m "pulso $(date -u +%F)" || exit 0
+          git push
