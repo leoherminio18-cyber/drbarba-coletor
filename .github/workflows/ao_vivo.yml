@@ -1,11 +1,11 @@
 name: gravador ao vivo
 
-# Cada execução fica em loop ~5h40 (o GitHub encerra trabalhos com 6 h). O disparo de hora em hora
-# só serve para emendar: com o grupo de concorrência, o próximo fica na fila e começa quando o
-# anterior termina. Nunca roda dois ao mesmo tempo.
+# Cada execução fica em loop ~5h40 (o GitHub encerra trabalhos com 6 h) e, no fim, dispara a
+# próxima (o agendamento do GitHub disparava pouco; ver coletor.yml). O cron fica de reserva. O
+# grupo de concorrência impede duas ao mesmo tempo.
 on:
   schedule:
-    - cron: '3 * * * *'
+    - cron: '3 */2 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -14,6 +14,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write   # disparar a próxima execução
 
 jobs:
   aovivo:
@@ -36,3 +37,9 @@ jobs:
           DADOS_REPO: ${{ vars.DADOS_REPO }}
           DURACAO_MIN: '340'
         run: python ao_vivo.py
+
+      - name: disparar a próxima execução
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ao_vivo.yml --repo "$GITHUB_REPOSITORY" --ref main

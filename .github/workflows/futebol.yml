@@ -1,9 +1,10 @@
 name: robo de futebol
 
+# Um ciclo por hora durante ~5h30 e, no fim, dispara a próxima execução (o agendamento do GitHub
+# disparava pouco; ver coletor.yml). O cron fica de reserva. A memória vive no repositório de dados.
 on:
   schedule:
-    # de hora em hora, fora dos minutos do coletor de odds (7, 22, 37, 52)
-    - cron: '44 * * * *'
+    - cron: '44 */3 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -12,11 +13,12 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write   # disparar a próxima execução
 
 jobs:
   futebol:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
 
@@ -27,9 +29,22 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: resultados + historico de 1o/2o tempo
+      - name: resultados + historico de 1o/2o tempo (um ciclo por hora, ~5h30)
         env:
           APIFOOTBALL_API_KEY: ${{ secrets.APIFOOTBALL_API_KEY }}
           DADOS_TOKEN: ${{ secrets.DADOS_TOKEN }}
           DADOS_REPO: ${{ vars.DADOS_REPO }}
-        run: python futebol.py
+        run: |
+          fim=$(( $(date +%s) + 330*60 ))
+          while [ $(date +%s) -lt $fim ]; do
+            ini=$(date +%s)
+            python futebol.py || echo "ciclo com erro (segue)"
+            espera=$(( 3600 - ($(date +%s) - ini) ))
+            [ $espera -gt 0 ] && [ $(( $(date +%s) + espera )) -lt $fim ] && sleep $espera || break
+          done
+
+      - name: disparar a próxima execução
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run futebol.yml --repo "$GITHUB_REPOSITORY" --ref main

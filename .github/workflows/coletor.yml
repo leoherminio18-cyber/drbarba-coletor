@@ -1,9 +1,12 @@
 name: coletor de odds
 
+# O agendamento do GitHub é pouco confiável em repositório novo (em 01/10/2026 disparou 2 vezes em
+# 8 horas, para um cron de 15 em 15 min). Por isso cada execução fica ~5h30 rodando um ciclo a cada
+# 15 min e, no fim, DISPARA A PRÓXIMA (workflow_dispatch pelo próprio token do Actions). O cron fica
+# de reserva, para religar a corrente se ela quebrar; o grupo de concorrência impede duas ao mesmo tempo.
 on:
   schedule:
-    # de 15 em 15 min, fora da virada da hora (o GitHub atrasa mais no :00)
-    - cron: '7,22,37,52 * * * *'
+    - cron: '7 */2 * * *'
   workflow_dispatch:
     inputs:
       forcar_varredura:
@@ -21,12 +24,12 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write   # para apagar caches velhos do estado
+  actions: write   # apagar caches velhos do estado e disparar a próxima execução
 
 jobs:
   coletar:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
 
@@ -44,14 +47,23 @@ jobs:
           key: estado-${{ github.run_id }}
           restore-keys: estado-
 
-      - name: coletar
+      - name: coletar (um ciclo a cada 15 min, ~5h30)
         env:
           APIFOOTBALL_API_KEY: ${{ secrets.APIFOOTBALL_API_KEY }}
           DADOS_TOKEN: ${{ secrets.DADOS_TOKEN }}
           DADOS_REPO: ${{ vars.DADOS_REPO }}
           FORCAR_VARREDURA: ${{ inputs.forcar_varredura && '1' || '' }}
           TESTE: ${{ inputs.teste && '1' || '' }}
-        run: python coletor.py
+        run: |
+          if [ -n "$TESTE" ]; then python coletor.py; exit $?; fi
+          fim=$(( $(date +%s) + 330*60 ))
+          while [ $(date +%s) -lt $fim ]; do
+            ini=$(date +%s)
+            python coletor.py || echo "ciclo com erro (segue)"
+            FORCAR_VARREDURA=''
+            espera=$(( 900 - ($(date +%s) - ini) ))
+            [ $espera -gt 0 ] && [ $(( $(date +%s) + espera )) -lt $fim ] && sleep $espera || break
+          done
 
       - name: guardar a memória
         if: always()
@@ -67,3 +79,9 @@ jobs:
         run: |
           gh cache list --repo "$GITHUB_REPOSITORY" --key estado- --sort created_at --order desc --limit 100 --json id \
             --jq '.[3:][].id' | while read id; do gh cache delete "$id" --repo "$GITHUB_REPOSITORY" || true; done
+
+      - name: disparar a próxima execução
+        if: always() && !inputs.teste
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run coletor.yml --repo "$GITHUB_REPOSITORY" --ref main
